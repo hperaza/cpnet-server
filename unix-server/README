@@ -49,12 +49,17 @@ The server program accepts a number of command line options:
                   either 1.1 or 1.2 (defaults to 1.2)
 
   -port device    Sets the serial port to 'device', overriding the
-                  initialization file settings.
+                  initialization file settings. Device may be "-"
+                  to indicate use of stdin/stdout for communication
+                  (see also -log option).
 
   -speed value    Sets the serial baud rate to 'value', overriding the
                   initialization file settings. The argument must be
                   an standard serial baud rate, 38400 is assumed if an
                   invalid value is specified.
+
+  -log file       Use 'file' to log debug data, instead of stdout.
+                  Must be used if 'device' is set to "-" (stdio).
                   
   -debug value    Sets the debug mask to 'value', overriding the
                   initialization file settings. The debug mask can be
@@ -84,6 +89,11 @@ The server program accepts a number of command line options:
 
   -netid id       Sets the server's network ID to 'id', overriding the
                   initialization file settings.
+
+  -clientid id    Declares the node ID to use for the client, if the
+                  client requests it. This provides support for
+                  cpnet-z80 serial port clients. 'id' may be specified
+                  in hexadecimal by prefixing with "0x".
 
   -pwd passwd     Sets the network password to 'passwd', overriding the
                   initialization file settings. Only the first 8 characters
@@ -128,6 +138,10 @@ Section [defaults]
 level = 1.2            The CP/NET version level to emulate, either 1.1 or
                        1.2.
 
+log = file             The file (path) to use for logging debug output,
+                       instead of stdout. This should especially be set
+                       whenever device is set to "-"
+
 debug = 0              Sets the debug mask. See the command-line options
                        description above for a list of possible values.
 
@@ -136,13 +150,22 @@ netid = 0              Sets the server's network ID. There is no reason to
                        on the same or different PCs, connected to the same
                        CP/M machine.
 
+clientid = id          Declares the node ID to use for the client, if the
+                       client requests it. This provides support for
+                       cpnet-z80 serial port clients. 'id' may be specified
+                       in hexadecimal by prefixing with "0x".
+
 password = PASSWORD    Sets the network password. Only the first 8 letters
                        will be used, and the string converted to UPPERCASE.
 
 
 Section [comm]
 
-device = /dev/ttyS0    Specifies the serial communication device.
+device = /dev/ttyS0    Specifies the serial communication device. May be
+                       "-" to use stdio, in which case 'speed' has no
+                       meaning. Stdio also necessitates that 'log' also
+                       be set, otherwise debug output will collide with
+                       CP/NET communications.
 
 speed = 38400          Specifies the serial communication baud rate.
 
@@ -190,6 +213,25 @@ By default no printers are defined, and any printer output will be ignored.
 
 All settings, except the disk-to-directory and printer-to-file mappings, can
 be overriden by command-line options.
+
+
+Support for cpnet-z80 Clients
+-----------------------------
+
+Serial port clients from the cpnet-z80, using the "DRI" protocol,
+are supported with the addition of special "proxy" CP/NET functions.
+These functions use FNC codes 0xF0 through 0xFF (240-255), and the
+request's DID is not required to match 'netid'.
+
+Function 255 is a request for the programmed client ID, and the response
+is a simple message with the client ID set in the DID field.  If no
+"clientid" is set in the ini file, then this server will assign client IDs
+in the range 240-254, changing the number on each function 255 request.
+
+Function 254 is a "network shutdown" message and has no response.
+This request is accepted but otherwise ignored (currently). It is
+typically implemented as a clean shutdown of network connections
+(sockets and other resources).
 
 
 Running
