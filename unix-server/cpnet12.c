@@ -36,6 +36,7 @@
 #include "cpnet12.h"
 
 extern int _netID;
+extern int _clientID;
 extern int _debug;
 extern int _logged_in;
 
@@ -45,6 +46,9 @@ extern char *disk_to_dir[16];
 extern char _passwd[8];
 
 extern uchar allocv[256];
+
+extern FILE *_log;
+static int nxtClient = 0xfe;
 
 int cpnet_12() {
   int sid, fnc, len;
@@ -81,8 +85,9 @@ int cpnet_12() {
         fname = fn_name[fnc - (64-41)];
       else
         fname = "";
-      printf("Requested function %d (%02Xh): %s\n",
+      fprintf(_log, "Requested function %d (%02Xh): %s\n",
              fnc, (unsigned char) fnc, fname);
+      fflush(_log);
       dump_data(buf, len);
     }
     
@@ -684,10 +689,16 @@ int cpnet_12() {
           _logged_in = 1;
           first_connect = 1;
           send_ok(sid, 64);
-          if (_debug & DEBUG_MISC) printf("requester %d logged in\n", sid);
+          if (_debug & DEBUG_MISC) {
+            fprintf(_log, "requester %d logged in\n", sid);
+            fflush(_log);
+          }
         } else {
           send_error(sid, 14);
-          if (_debug & DEBUG_MISC) printf("requester %d login denied, bad password\n", sid);
+          if (_debug & DEBUG_MISC) {
+            fprintf(_log, "requester %d login denied, bad password\n", sid);
+            fflush(_log);
+          }
         }
         break;
         
@@ -695,7 +706,10 @@ int cpnet_12() {
         if (_logged_in) {
           _logged_in = 0;
           send_ok(sid, 65);
-          if (_debug & DEBUG_MISC) printf("requester %d logged out\n", sid);
+          if (_debug & DEBUG_MISC) {
+            fprintf(_log, "requester %d logged out\n", sid);
+            fflush(_log);
+          }
         } else {
           send_error(sid, 65);
         }
@@ -727,6 +741,21 @@ int cpnet_12() {
         send_error(sid, 106);
         break;
 
+      case 255:
+        /* TODO: auto-generate ID if none configured */
+        if (!_clientID) {
+          send_ok(nxtClient--, 255);
+          if (nxtClient < 0xf0) {
+            nxtClient = 0xfe;
+          }
+        } else {
+          send_ok(_clientID, 255);
+        }
+        break;
+      case 254:
+        /* TODO: close any connections */
+        /* no response expected */
+        break;
       default:
         send_error(sid, 0);
         break;
